@@ -1,0 +1,2 @@
+Get "https://madeup11237asdad.com": dial tcp: lookup madeup11237asdad.com: no such host
+11.06s elapsed

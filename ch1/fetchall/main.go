@@ -1,16 +1,9 @@
-// Copyright © 2016 Alan A. A. Donovan & Brian W. Kernighan.
-// License: https://creativecommons.org/licenses/by-nc-sa/4.0/
-
-// See page 17.
-//!+
-
-// Fetchall fetches URLs in parallel and reports their times and sizes.
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"time"
@@ -19,13 +12,22 @@ import (
 func main() {
 	start := time.Now()
 	ch := make(chan string)
+	outFile, err := os.Create("response.txt")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "response.txt: %v\n", err)
+		return
+	}
+	defer outFile.Close()
+	writer := bufio.NewWriter(outFile)
+	defer writer.Flush()
+
 	for _, url := range os.Args[1:] {
 		go fetch(url, ch) // start a goroutine
 	}
 	for range os.Args[1:] {
-		fmt.Println(<-ch) // receive from channel ch
+		fmt.Fprintln(writer, <-ch) // receive from channel ch
 	}
-	fmt.Printf("%.2fs elapsed\n", time.Since(start).Seconds())
+	fmt.Fprintf(writer, "%.2fs elapsed\n", time.Since(start).Seconds())
 }
 
 func fetch(url string, ch chan<- string) {
@@ -36,14 +38,12 @@ func fetch(url string, ch chan<- string) {
 		return
 	}
 
-	nbytes, err := io.Copy(ioutil.Discard, resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close() // don't leak resources
 	if err != nil {
 		ch <- fmt.Sprintf("while reading %s: %v", url, err)
 		return
 	}
 	secs := time.Since(start).Seconds()
-	ch <- fmt.Sprintf("%.2fs  %7d  %s", secs, nbytes, url)
+	ch <- fmt.Sprintf("%.2fs  %7d  %s\n%s", secs, len(body), url, body)
 }
-
-//!-
